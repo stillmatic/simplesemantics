@@ -1,10 +1,7 @@
 import heapq
 from typing import List, Optional, Tuple, Any
-from sentence_transformers import SentenceTransformer
 import numpy as np
 import json
-
-from simplesemantics import wrappers
 
 
 class Document:
@@ -97,7 +94,7 @@ class DocumentLoader:
     def search(
         self,
         query: str,
-        k: int,
+        k: int = 10,
         alpha: Optional[float] = None,
         metadata: Optional[dict] = None,
     ) -> List[Tuple[str, str]]:
@@ -148,19 +145,3 @@ class DocumentLoader:
             doc = f.readline()
             while doc:
                 self.documents.append(Document(**json.loads(doc)))
-
-
-if __name__ == "__main__":
-    dense_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
-    sparse_model = wrappers.SpladeWrapper(
-        "naver/splade-cocondenser-ensembledistil", agg="mean"
-    )
-
-    doc_loader = DocumentLoader(dense_model=dense_model, sparse_model=sparse_model)
-    doc_loader.load_document("Document1", "This is a relevant document to the query")
-    doc_loader.load_document("Document2", "I like to eat apples and oranges")
-    doc_loader.load_document("Document3", "I like to eat apples and oranges")
-    doc_loader.load_document("Document4", "I like to eat apples and oranges")
-    doc_loader.load_document("Document5", "I like to eat apples and oranges")
-    doc_loader.load_document("Document6", "I like to eat apples and oranges")
-    results = doc_loader.search("Where are my documents?", 5)
