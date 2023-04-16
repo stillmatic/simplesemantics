@@ -28,6 +28,8 @@ class DocumentStore:
             assert hasattr(sparse_model, "encode")
         self.sparse_model = sparse_model
         self.alpha = alpha
+        self.sparse_embedding_idx = []
+        self.dense_embedding_idx = []
 
     def load_document(
         self,
@@ -67,8 +69,8 @@ class DocumentStore:
                 document_id=max_document_id + index,
                 document_name=document_name,
                 document_content=line,
-                dense_embedding=embeddings.get("dense"),
                 sparse_embedding=embeddings.get("sparse"),
+                dense_embedding=embeddings.get("dense"),
                 metadata=metadata,
             )
             self.documents.append(doc)
@@ -96,6 +98,50 @@ class DocumentStore:
             embeddings["dense"] = self.dense_model.encode(query)
         if self.sparse_model:
             embeddings["sparse"] = self.sparse_model.encode(query)
+        if metric == "cosine":
+            distance_fn = cosine_similarity
+        elif metric == "euclidean":
+            distance_fn = euclidean_distance
+
+        def score(document: Document) -> Optional[float]:
+            dense_score = sparse_score = 0
+            if metadata:
+                for key, value in metadata.items():
+                    if document.metadata.get(key) != value:
+                        return None
+            if self.dense_model:
+                dense_score = distance_fn(embeddings["dense"], document.dense_embedding)
+            if self.sparse_model:
+                sparse_score = distance_fn(
+                    embeddings["sparse"], document.sparse_embedding
+                )
+            return alpha * dense_score + (1 - alpha) * sparse_score
+
+        return heapq.nlargest(
+            k,
+            ((score(document), document) for document in self.documents),
+            key=lambda x: x[0],
+        )
+
+    def vector_search(
+        self,
+        sparse_embedding: Optional[np.ndarray] = None,
+        dense_embedding: Optional[np.ndarray] = None,
+        k: int = 10,
+        alpha: Optional[float] = None,
+        metadata: Optional[dict] = None,
+        metric: str = "cosine",
+    ) -> List[Tuple[float, Document]]:
+        """Searches the DocumentLoader for the top k documents that match the embedding"""
+        if alpha is None:
+            alpha = self.alpha
+        if not sparse_embedding and not dense_embedding:
+            raise ValueError("Must pass at least one embedding")
+        embeddings = {}
+        if dense_embedding:
+            embeddings["dense"] = dense_embedding
+        if sparse_embedding:
+            embeddings["sparse"] = sparse_embedding
         if metric == "cosine":
             distance_fn = cosine_similarity
         elif metric == "euclidean":

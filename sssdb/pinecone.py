@@ -18,9 +18,11 @@ class Pinecone(DocumentLoader):
         - ids (list of str): A list of IDs to fetch.
         - namespace (str): The namespace to fetch from.
         """
+        docs = []
         for document in self.documents:
             if document.document_id in ids:
-                yield document
+                docs.append(document)
+        return docs
 
     def query(self, **kwargs):
         """The Query operation returns the IDs of the top-k vectors that are most similar to the query vector.

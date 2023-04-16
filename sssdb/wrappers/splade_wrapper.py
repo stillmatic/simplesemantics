@@ -1,9 +1,8 @@
-import torch
-from transformers import AutoModelForMaskedLM, AutoTokenizer
-from splade.models.transformer_rep import Splade
-
-
 class SpladeWrapper:
+    import torch
+    from transformers import AutoModelForMaskedLM, AutoTokenizer
+    from splade.models.transformer_rep import Splade
+
     def __init__(self, model_name: str, agg: str = "mean"):
         self.model = AutoModelForMaskedLM.from_pretrained(model_name)
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
