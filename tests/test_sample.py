@@ -1,5 +1,4 @@
 import simplesemantics
-import math
 
 
 def test_init():
@@ -11,12 +10,25 @@ class TestModel:
         return [1, 2, 3]
 
 
-def test_load_document():
+def test_basics():
     document_name = "Document1"
     document_content = "My documents are in the box"
-    dl = simplesemantics.DocumentLoader(dense_model=TestModel())
+    dl = simplesemantics.DocumentStore(dense_model=TestModel())
     dl.load_document(document_name=document_name, document_content=document_content)
     document = dl.documents[0]
+    assert document.document_name == document_name
+    assert document.document_content == document_content
+    assert document.document_id == 0
+    assert document.dense_embedding is not None
+    assert document.metadata == {}
+
+    # test save
+    dl.save("test.json")
+
+    # test load
+    dl2 = simplesemantics.DocumentStore(dense_model=TestModel())
+    dl2.load("test.json")
+    document = dl2.documents[0]
     assert document.document_name == document_name
     assert document.document_content == document_content
     assert document.document_id == 0
@@ -27,7 +39,7 @@ def test_load_document():
 def test_dummy_example():
     dense_model = TestModel()
     sparse_model = TestModel()
-    dl = simplesemantics.DocumentLoader(
+    dl = simplesemantics.DocumentStore(
         dense_model=dense_model, sparse_model=sparse_model
     )
     dl.load_document("Document1", "My documents are in the box")
@@ -54,14 +66,14 @@ def test_dummy_example():
 
 def test_example_with_minilm():
     from sentence_transformers import SentenceTransformer
-    from simplesemantics import wrappers, DocumentLoader
+    from simplesemantics import wrappers, DocumentStore
 
     dense_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
     sparse_model = wrappers.SpladeWrapper(
         "naver/splade-cocondenser-ensembledistil", agg="mean"
     )
 
-    doc_loader = DocumentLoader(dense_model=dense_model, sparse_model=sparse_model)
+    doc_loader = DocumentStore(dense_model=dense_model, sparse_model=sparse_model)
     doc_loader.load_document("Document1", "My documents are in the box")
     doc_loader.load_document("Document2", "I like to eat apples and oranges")
     doc_loader.load_document(

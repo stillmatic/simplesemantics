@@ -1,47 +1,12 @@
 import heapq
 from typing import List, Optional, Tuple, Any
-import numpy as np
 import json
+import numpy as np
+from simplesemantics.document import Document
+from simplesemantics.metrics import cosine_similarity, euclidean_distance
 
 
-class Document:
-    def __init__(
-        self,
-        document_id: int,
-        document_name: str,
-        document_content: str,
-        dense_embedding: np.ndarray,
-        sparse_embedding: np.ndarray,
-        metadata: dict,
-    ):
-        self.document_name = document_name
-        self.document_content = document_content
-        self.document_id = document_id
-        self.dense_embedding = dense_embedding
-        self.sparse_embedding = sparse_embedding
-        self.metadata = metadata
-
-    def __repr__(self):
-        return f"Document({self.document_id}, {self.document_name}, {self.document_content})"
-
-    def __lt__(self, other):
-        return self.document_id < other.document_id
-
-    def __le__(self, other):
-        return self.document_id <= other.document_id
-
-    def serialize(self):
-        return {
-            "document_name": self.document_name,
-            "document_content": self.document_content,
-            "document_id": self.document_id,
-            "dense_embedding": self.dense_embedding,
-            "sparse_embedding": self.sparse_embedding,
-            "metadata": self.metadata,
-        }
-
-
-class DocumentLoader:
+class DocumentStore:
     def __init__(
         self, alpha: float = 0.7, dense_model: Any = None, sparse_model: Any = None
     ):
@@ -68,17 +33,34 @@ class DocumentLoader:
         self,
         document_name: str,
         document_content: str,
+        dense_embedding: Optional[np.ndarray] = None,
+        sparse_embedding: Optional[np.ndarray] = None,
+        split_lines: bool = False,
         metadata: Optional[dict] = None,
     ) -> None:
-        lines = document_content.split("\n")
+        """Loads a document into the DocumentLoader.
+
+        - document_name: str, name of the document
+        - document_content: str, content of the document
+        - split_lines: bool, whether to split the document content by line
+        - metadata: dict, metadata to store with the document
+        """
+        if split_lines:
+            lines = document_content.split("\n")
+        else:
+            lines = [document_content]
         max_document_id = len(self.documents)
         for index, line in enumerate(lines):
             # Use a dictionary to store embeddings conditionally
             embeddings = {}
-            if self.dense_model:
+            if self.dense_model and not dense_embedding:
                 embeddings["dense"] = self.dense_model.encode(line)
-            if self.sparse_model:
+            if self.sparse_model and not sparse_embedding:
                 embeddings["sparse"] = self.sparse_model.encode(line)
+            if dense_embedding:
+                embeddings["dense"] = dense_embedding
+            if sparse_embedding:
+                embeddings["sparse"] = sparse_embedding
             if metadata is None:
                 metadata = {}
             doc = Document(
@@ -97,7 +79,16 @@ class DocumentLoader:
         k: int = 10,
         alpha: Optional[float] = None,
         metadata: Optional[dict] = None,
-    ) -> List[Tuple[str, str]]:
+        metric: str = "cosine",
+    ) -> List[Tuple[float, Document]]:
+        """Searches the DocumentLoader for the top k documents that match the query
+
+        - query: str, query to search for
+        - k: int, number of documents to return
+        - alpha: float, weight of dense model
+        - metadata: dict, metadata to filter documents by
+        Returns a list of tuples of the form (score, document)
+        """
         if alpha is None:
             alpha = self.alpha
         embeddings = {}
@@ -105,6 +96,10 @@ class DocumentLoader:
             embeddings["dense"] = self.dense_model.encode(query)
         if self.sparse_model:
             embeddings["sparse"] = self.sparse_model.encode(query)
+        if metric == "cosine":
+            distance_fn = cosine_similarity
+        elif metric == "euclidean":
+            distance_fn = euclidean_distance
 
         def score(document: Document) -> Optional[float]:
             dense_score = sparse_score = 0
@@ -113,11 +108,9 @@ class DocumentLoader:
                     if document.metadata.get(key) != value:
                         return None
             if self.dense_model:
-                dense_score = self._cosine_similarity(
-                    embeddings["dense"], document.dense_embedding
-                )
+                dense_score = distance_fn(embeddings["dense"], document.dense_embedding)
             if self.sparse_model:
-                sparse_score = self._cosine_similarity(
+                sparse_score = distance_fn(
                     embeddings["sparse"], document.sparse_embedding
                 )
             return alpha * dense_score + (1 - alpha) * sparse_score
@@ -128,20 +121,14 @@ class DocumentLoader:
             key=lambda x: x[0],
         )
 
-    @staticmethod
-    def _cosine_similarity(vec1, vec2) -> float:
-        dot_product = sum(a * b for a, b in zip(vec1, vec2))
-        norm1 = sum(a * a for a in vec1) ** 0.5
-        norm2 = sum(b * b for b in vec2) ** 0.5
-        return dot_product / (norm1 * norm2)
-
-    def save(self, outfile):
+    def save(self, outfile: str):
         with open(outfile, "w") as f:
             for document in self.documents:
                 f.write(json.dumps(document.serialize()) + "\n")
 
-    def load(self, infile):
+    def load(self, infile: str):
         with open(infile, "r") as f:
             doc = f.readline()
             while doc:
                 self.documents.append(Document(**json.loads(doc)))
+                doc = f.readline()
