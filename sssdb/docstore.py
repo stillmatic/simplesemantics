@@ -2,8 +2,8 @@ import heapq
 from typing import List, Optional, Tuple, Any
 import json
 import numpy as np
-from simplesemantics.document import Document
-from simplesemantics.metrics import cosine_similarity, euclidean_distance
+from sssdb.document import Document
+from sssdb.metrics import cosine_similarity, euclidean_distance
 
 
 class DocumentStore:

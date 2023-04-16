@@ -1,5 +1,5 @@
 from sentence_transformers import SentenceTransformer
-from simplesemantics import wrappers, DocumentLoader
+from sssdb import wrappers, DocumentLoader
 
 if __name__ == "__main__":
     dense_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")

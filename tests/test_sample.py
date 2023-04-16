@@ -1,8 +1,8 @@
-import simplesemantics
+import sssdb
 
 
 def test_init():
-    assert simplesemantics.__version__ == "0.1.0"
+    assert sssdb.__version__ == "0.1.0"
 
 
 class TestModel:
@@ -13,7 +13,7 @@ class TestModel:
 def test_basics():
     document_name = "Document1"
     document_content = "My documents are in the box"
-    dl = simplesemantics.DocumentStore(dense_model=TestModel())
+    dl = sssdb.DocumentStore(dense_model=TestModel())
     dl.load_document(document_name=document_name, document_content=document_content)
     document = dl.documents[0]
     assert document.document_name == document_name
@@ -26,7 +26,7 @@ def test_basics():
     dl.save("test.json")
 
     # test load
-    dl2 = simplesemantics.DocumentStore(dense_model=TestModel())
+    dl2 = sssdb.DocumentStore(dense_model=TestModel())
     dl2.load("test.json")
     document = dl2.documents[0]
     assert document.document_name == document_name
@@ -39,9 +39,7 @@ def test_basics():
 def test_dummy_example():
     dense_model = TestModel()
     sparse_model = TestModel()
-    dl = simplesemantics.DocumentStore(
-        dense_model=dense_model, sparse_model=sparse_model
-    )
+    dl = sssdb.DocumentStore(dense_model=dense_model, sparse_model=sparse_model)
     dl.load_document("Document1", "My documents are in the box")
     dl.load_document("Document2", "I like to eat apples and oranges")
     dl.load_document(
@@ -66,7 +64,7 @@ def test_dummy_example():
 
 def test_example_with_minilm():
     from sentence_transformers import SentenceTransformer
-    from simplesemantics import wrappers, DocumentStore
+    from sssdb import wrappers, DocumentStore
 
     dense_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
     sparse_model = wrappers.SpladeWrapper(
