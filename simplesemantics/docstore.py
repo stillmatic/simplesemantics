@@ -2,6 +2,9 @@ import heapq
 from typing import List, Optional, Tuple, Any
 from sentence_transformers import SentenceTransformer
 import numpy as np
+import json
+
+from simplesemantics import wrappers
 
 
 class Document:
@@ -29,6 +32,16 @@ class Document:
 
     def __le__(self, other):
         return self.document_id <= other.document_id
+
+    def serialize(self):
+        return {
+            "document_name": self.document_name,
+            "document_content": self.document_content,
+            "document_id": self.document_id,
+            "dense_embedding": self.dense_embedding,
+            "sparse_embedding": self.sparse_embedding,
+            "metadata": self.metadata,
+        }
 
 
 class DocumentLoader:
@@ -125,10 +138,23 @@ class DocumentLoader:
         norm2 = sum(b * b for b in vec2) ** 0.5
         return dot_product / (norm1 * norm2)
 
+    def save(self, outfile):
+        with open(outfile, "w") as f:
+            for document in self.documents:
+                f.write(json.dumps(document.serialize()) + "\n")
+
+    def load(self, infile):
+        with open(infile, "r") as f:
+            doc = f.readline()
+            while doc:
+                self.documents.append(Document(**json.loads(doc)))
+
 
 if __name__ == "__main__":
     dense_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
-    sparse_model = SpladeWrapper("naver/splade-cocondenser-ensembledistil", agg="mean")
+    sparse_model = wrappers.SpladeWrapper(
+        "naver/splade-cocondenser-ensembledistil", agg="mean"
+    )
 
     doc_loader = DocumentLoader(dense_model=dense_model, sparse_model=sparse_model)
     doc_loader.load_document("Document1", "This is a relevant document to the query")
